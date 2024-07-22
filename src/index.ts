@@ -1,115 +1,117 @@
-import { IRenderMime } from '@jupyterlab/rendermime-interfaces';
-
-import { JSONObject } from '@lumino/coreutils';
-
-import { Widget } from '@lumino/widgets';
-
-/**
- * The default mime type for the extension.
- */
-const MIME_TYPE = 'application/desktop-notify+json';
-const PROCESSED_KEY = 'isProcessed';
-// The below can be used to customize notifications
-const NOTIFICATION_OPTIONS = {
-  icon: '/static/favicons/favicon.ico',
-};
-
-interface INotifyMimeData {
-  type: 'INIT' | 'NOTIFY';
-  payload: Record<string, unknown>;
-  isProcessed: boolean;
-  id: string;
+import {
+  JupyterFrontEnd,
+  JupyterFrontEndPlugin,
+} from '@jupyterlab/application';
+import { INotebookTracker } from '@jupyterlab/notebook';
+import { ISettingRegistry } from '@jupyterlab/settingregistry';
+import { ITranslator, nullTranslator } from '@jupyterlab/translation';
+import { bellIcon, editIcon } from '@jupyterlab/ui-components';
+import {
+  createDefaultFactory,
+  IToolbarWidgetRegistry,
+} from '@jupyterlab/apputils';
+namespace CommandIDs {
+  export const toggleCellNotifications = 'toggle-cell-notifications';
 }
 
+const CELL_METADATA_KEY = 'jupyterlab_notify.notify';
+
 /**
- * A widget for rendering desktop-notify.
+ * Initialization data for the {{ labextension_name }} extension.
  */
-class OutputWidget extends Widget implements IRenderMime.IRenderer {
-  constructor(options: IRenderMime.IRendererOptions) {
-    super();
-    this._mimeType = options.mimeType;
-  }
+const plugin: JupyterFrontEndPlugin<void> = {
+  id: 'jupyterlab-notify:plugin',
+  description: '',
+  autoStart: true,
+  requires: [INotebookTracker],
+  optional: [IToolbarWidgetRegistry, ITranslator, ISettingRegistry],
+  activate: (
+    app: JupyterFrontEnd,
+    tracker: INotebookTracker,
+    toolbarRegistry: IToolbarWidgetRegistry | null,
+    translator: ITranslator | null,
+    settingRegistry: ISettingRegistry | null,
+  ) => {
+    console.log('JupyterLab extension jupyterlab-notify is activated!');
 
-  renderModel(model: IRenderMime.IMimeModel): Promise<void> {
-    const mimeData = model.data[this._mimeType] as unknown as INotifyMimeData;
-
-    const payload = mimeData.payload as JSONObject;
-
-    // If the PROCESSED_KEY is available - do not take any action
-    // This is done so that notifications are not repeated on page refresh
-    if (mimeData[PROCESSED_KEY]) {
-      return Promise.resolve();
-    }
-
-    // For first-time users, check for necessary permissions and prompt if needed
-    if (
-      (mimeData.type === 'INIT' && Notification.permission === 'default') ||
-      Notification.permission !== 'granted'
-    ) {
-      // We do not have any actions to perform upon acquiring permission and so
-      // handle only the errors (if any)
-      Notification.requestPermission().catch(err => {
-        alert(
-          `Encountered error - ${err} while requesting permissions for notebook notifications`,
+    const trans = (translator ?? nullTranslator).load('jupyterlab-notify');
+    app.commands.addCommand(CommandIDs.toggleCellNotifications, {
+      label: args => {
+        const current = tracker.currentWidget;
+        return trans._n(
+          'Toggle Notifications for Selected Cell',
+          'Toggle Notifications for %1 Selected Cells',
+          current?.content.selectedCells.length ?? 1,
         );
+      },
+      execute: args => {
+        const current = tracker.currentWidget;
+        if (!current) {
+          console.warn(
+            'Cannot toggle notifications on cells - no notebook selected',
+          );
+          return;
+        }
+        for (const cell of current.content.selectedCells) {
+          const mode = cell.model.getMetadata(CELL_METADATA_KEY);
+          // TODO: define modes, say: never/always/on failure/after timeout
+          // TODO: add a dropdown to select timeout
+          // TODO: add different variants of the icon, ideally a smaller icon
+          let newMode: string;
+          switch (mode) {
+            case 'always':
+              newMode = 'never';
+              break;
+            case 'never':
+              newMode = 'always';
+              break;
+            default:
+              newMode = 'always';
+              break;
+          }
+          cell.model.setMetadata(CELL_METADATA_KEY, newMode);
+          app.commands.notifyCommandChanged(CommandIDs.toggleCellNotifications);
+        }
+      },
+      icon: args => {
+        if (!args.toolbar) {
+          return undefined;
+        }
+        const current = tracker.currentWidget;
+        if (!current) {
+          return undefined;
+        }
+        const cell = current.content.selectedCells[0];
+        const mode = cell.model.getMetadata(CELL_METADATA_KEY);
+        if (mode === 'always') {
+          return editIcon;
+        }
+        return bellIcon;
+      },
+      isEnabled: args => (args.toolbar ? true : !!tracker.currentWidget),
+    });
+
+    if (toolbarRegistry) {
+      const itemFactory = createDefaultFactory(app.commands);
+      toolbarRegistry.addFactory('Cell', 'notify', widget => {
+        return itemFactory('Cell', widget, {
+          name: 'notify',
+          command: CommandIDs.toggleCellNotifications,
+        });
       });
     }
 
-    if (mimeData.type === 'NOTIFY') {
-      // Notify only if there's sufficient permissions and this has not been processed previously
-      if (Notification.permission === 'granted' && !mimeData[PROCESSED_KEY]) {
-        new Notification(payload.title as string, NOTIFICATION_OPTIONS);
-      } else {
-        this.node.innerHTML = `<div id="${mimeData.id}">Missing permissions - update "Notifications" preferences under browser settings to receive notifications</div>`;
-      }
+    if (settingRegistry) {
+      settingRegistry
+        .load(plugin.id)
+        .then(settings => {
+          console.log('jupyterlab-notify settings loaded:', settings.composite);
+        })
+        .catch(reason => {
+          console.error('Failed to load settings for jupyterlab-notify.', reason);
+        });
     }
-
-    if (!mimeData[PROCESSED_KEY]) {
-      // Add isProcessed property to each notification message so that we can avoid repeating notifications on page reloads
-      const updatedModel: IRenderMime.IMimeModel = JSON.parse(
-        JSON.stringify(model),
-      );
-      const updatedMimeData = updatedModel.data[
-        this._mimeType
-      ] as unknown as INotifyMimeData;
-      updatedMimeData[PROCESSED_KEY] = true;
-      // The below model update is done inside a separate function and added to
-      // the event queue - this is done so to avoid re-rendering before the
-      // initial render is complete.
-      //
-      // Without the setTimeout, calling model.setData triggers the callbacks
-      // registered on model-updates that re-renders the widget and it again tries
-      // to update the model which again causes a re-render and so on.
-      setTimeout(() => {
-        model.setData(updatedModel);
-      }, 0);
-    }
-
-    return Promise.resolve();
-  }
-
-  private _mimeType: string;
-}
-
-/**
- * A mime renderer factory for desktop-notify data.
- */
-const rendererFactory: IRenderMime.IRendererFactory = {
-  safe: true,
-  mimeTypes: [MIME_TYPE],
-  createRenderer: options => new OutputWidget(options),
+  },
 };
 
-/**
- * Extension definition.
- */
-const extension: IRenderMime.IExtension = {
-  id: 'desktop-notify:plugin',
-  rendererFactory,
-  rank: 0,
-  dataType: 'json',
-};
-
-console.log('jupyterlab-notify render activated');
-
-export default extension;
+export default plugin;
