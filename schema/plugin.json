@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema",
   "title": "Notify",
   "description": "jupyterlab-notify settings.",
-  "jupyter.lab.setting-icon": "ui-components:bell",
+  "jupyter.lab.setting-icon": "notify:bell-outline",
   "jupyter.lab.toolbars": {
     "Cell": [
       {
