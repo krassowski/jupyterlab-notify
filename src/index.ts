@@ -2,7 +2,7 @@ import {
   JupyterFrontEnd,
   JupyterFrontEndPlugin,
 } from '@jupyterlab/application';
-import { INotebookTracker } from '@jupyterlab/notebook';
+import { INotebookTracker, NotebookActions } from '@jupyterlab/notebook';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
 import { ITranslator, nullTranslator } from '@jupyterlab/translation';
 import { LabIcon } from '@jupyterlab/ui-components';
@@ -11,7 +11,7 @@ import {
   IToolbarWidgetRegistry,
 } from '@jupyterlab/apputils';
 import { bellOutlineIcon, bellFilledIcon, bellOffIcon, bellAlertIcon } from './icons';
-
+import { requestAPI } from './handler';
 
 namespace CommandIDs {
   export const toggleCellNotifications = 'toggle-cell-notifications';
@@ -57,6 +57,10 @@ interface ICellMetadata {
   timeoutSeconds?: number;
 }
 
+interface INbModelResponse {
+  nbmodel_installed: boolean
+}
+
 /**
  * Initialization data for the jupyterlab-notify extension.
  */
@@ -66,7 +70,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
   autoStart: true,
   requires: [INotebookTracker],
   optional: [IToolbarWidgetRegistry, ITranslator, ISettingRegistry],
-  activate: (
+  activate: async (
     app: JupyterFrontEnd,
     tracker: INotebookTracker,
     toolbarRegistry: IToolbarWidgetRegistry | null,
@@ -103,7 +107,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
             nextModeIndex = 0;
           }
           const newModeId = ModeIds[nextModeIndex];
-          cell.model.setMetadata(CELL_METADATA_KEY, {mode: newModeId, ...oldMetadata});
+          cell.model.setMetadata(CELL_METADATA_KEY, {...oldMetadata, mode: newModeId});
           app.commands.notifyCommandChanged(CommandIDs.toggleCellNotifications);
         }
       },
@@ -147,6 +151,48 @@ const plugin: JupyterFrontEndPlugin<void> = {
           console.error('Failed to load settings for jupyterlab-notify.', reason);
         });
     }
+
+    let nbmodel_installed = false
+
+    // Check server capability
+    try{
+      const response = await requestAPI<INbModelResponse>('notify');
+      nbmodel_installed = response.nbmodel_installed
+      
+    } catch(e){
+      console.error("Checking server capability failed",e)
+    }
+
+    NotebookActions.executionScheduled.connect(async (_, args) => {
+      const { cell } = args;
+      const notifyEnabled = cell.model.getMetadata(CELL_METADATA_KEY);
+      if (notifyEnabled) {
+        try {
+          if(nbmodel_installed){
+              // Register with server
+              await requestAPI('notify', {
+                method: 'POST',
+                body: JSON.stringify({ cell_id: cell.model.id }),
+              });
+          } else {
+            // Fallback to client-side trigger
+            const listener = async (_:any,args:any) => {
+              if (args.cell.model.id === cell.model.id) {
+                await requestAPI('notify-trigger', {
+                  method: 'POST',
+                  body: JSON.stringify({ cell_id: cell.model.id }),
+                }).catch(console.error);
+                //Disconnect the listener
+                NotebookActions.executed.disconnect(listener);
+              }
+            };
+            NotebookActions.executed.connect(listener);
+          }
+        } catch (error) {
+          console.error('Notification registration failed:', error);
+        }
+      }
+    });
   },
 };
 

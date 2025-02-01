@@ -1,6 +1,7 @@
 from .magics import NotifyCellCompletionMagics
 from ._version import __version__
 
+from .extension import NotifyExtension
 
 def _jupyter_labextension_paths():
     return [{
@@ -11,13 +12,9 @@ def _jupyter_labextension_paths():
 
 def _jupyter_server_extension_points():
     return [{
-        "module": "jupyterlab_notify"
+        "module": "jupyterlab_notify",
+        "app": NotifyExtension
     }]
 
-
-def _load_jupyter_server_extension(server_app):
-    pass
-
-
-def load_ipython_extension(ipython):
-    ipython.register_magics(NotifyCellCompletionMagics)
+# def load_ipython_extension(ipython):
+#     ipython.register_magics(NotifyCellCompletionMagics)
