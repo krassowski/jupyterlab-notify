@@ -1,21 +1,26 @@
 from jupyter_server.extension.application import ExtensionApp
 from .handlers import NotifyHandler, NotifyTriggerHandler
 import logging
+from .config import NotificationConfig
+from email.message import EmailMessage
+from getpass import getuser
+import smtplib
 
 NBMODEL_SCHEMA_ID = "https://events.jupyter.org/jupyter_server_nbmodel/cell_execution/v1"
 
 class NotifyExtension(ExtensionApp):
     name = "jupyter_notify_v2"
-    # TODO Configuration parameters for email
 
     def initialize(self):
-        # Setup event listener if nbmodel is available
+        #setup config
+        self.init_config()
         self.logger = logging.getLogger('jupyter-notify')
         self.logger.setLevel(logging.DEBUG)
         if not self.logger.hasHandlers():
             console_handler = logging.StreamHandler()  # Prints to console
             console_handler.setLevel(logging.DEBUG)  # Set handler's log level
             self.logger.addHandler(console_handler)  # Attach handler
+        # Setup event listener if nbmodel is available
         try:
             from jupyter_server_nbmodel.event_logger import event_logger
             self.logger.debug("Adding event listener to server nbmodel")
@@ -29,6 +34,25 @@ class NotifyExtension(ExtensionApp):
             self.is_listening = False
 
         return super().initialize()
+
+    def init_config(self):
+        self._config = NotificationConfig(parent=self)
+        
+        # Preinitialize attributes to default values
+        self.slack_client = None
+        self.slack_imported = False
+        self.mail = self._config.email
+        self.slack_user_id = self._config.slack_user_id
+        self.slack_channel_name = self._config.slack_channel_name  # Ensure this is defined in NotificationConfig
+
+        try:
+            import slack
+            # Only attempt to create a client if a token is provided
+            if self._config.slack_token:
+                self.slack_client = slack.WebClient(token=self._config.slack_token)
+            self.slack_imported = True
+        except ImportError:
+            self.slack_imported = False
 
     def initialize_handlers(self):
         self.cell_ids = set()
@@ -54,7 +78,35 @@ class NotifyExtension(ExtensionApp):
             self.send_notification(cell_id)
             self.cell_ids.remove(cell_id)
 
-    def send_notification(self, cell_id: str):
-        """Send email notification (Function X)"""
-        print("Sending an email!")
+    def send_slack_notification(self):
+        if self.slack_imported and self.slack_client:
+            try:
+                channel_name = '#'+self.slack_channel_name
+                if self.slack_user_id:
+                    try:
+                        # Open a DM conversation with the user
+                        response = self.slack_client.conversations_open(users=[self.slack_user_id])
+                        # Extract the channel ID from the response
+                        channel_name = response["channel"]["id"]
+                    except:
+                        pass
+                if channel_name:
+                    self.slack_client.chat_postMessage(channel=channel_name, text="Hello! I'm from jupyterlab-notify!")
+            except:
+                print("Failed to notify through slack")
+    
+    #TODO
+    def send_email_notification(self):
+        message = EmailMessage()
+        message["Subject"] = "Test Title"
+        message["From"] = getuser()
+        message["To"] = getuser()
 
+        with smtplib.SMTP("localhost") as smtp_conn:
+            smtp_conn.send_message(message)
+
+    #TODO
+    def send_notification(self, cell_id: str):
+        """Send email or slack notification"""
+        self.send_slack_notification()
+        self.send_email_notification()

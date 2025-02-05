@@ -23,7 +23,7 @@ class NotifyHandler(ExtensionHandlerMixin, JupyterHandler):
         """Check if extension is listening events from jupyter-server-nbmodel"""
         self.logger.debug(f"Checking for nbmodel! {self.extension_app.is_listening}")
         self.set_status(HTTPStatus.OK)
-        self.finish({"nbmodel_installed": False})
+        self.finish({"nbmodel_installed": self.extension_app.is_listening})
 
     @tornado.web.authenticated
     async def post(self):
@@ -48,7 +48,6 @@ class NotifyTriggerHandler(ExtensionHandlerMixin, JupyterHandler):
     @tornado.web.authenticated
     async def post(self):
         """Trigger notification directly"""
-        print("Hereooo")
         data = self.get_json_body()
         cell_id = data.get("cell_id")
         
