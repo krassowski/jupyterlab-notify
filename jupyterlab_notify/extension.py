@@ -41,7 +41,7 @@ class NotifyExtension(ExtensionApp):
         # Preinitialize attributes to default values
         self.slack_client = None
         self.slack_imported = False
-        self.mail = self._config.email
+        self.email = self._config.email
         self.slack_user_id = self._config.slack_user_id
         self.slack_channel_name = self._config.slack_channel_name  # Ensure this is defined in NotificationConfig
 
@@ -55,7 +55,7 @@ class NotifyExtension(ExtensionApp):
             self.slack_imported = False
 
     def initialize_handlers(self):
-        self.cell_ids = set()
+        self.cell_ids = {}
         self.handlers.extend([
             (r"/api/jupyter-notify/notify", NotifyHandler, {
                 "extension_app": self
@@ -75,7 +75,10 @@ class NotifyExtension(ExtensionApp):
         self.logger.debug(f"My cell_ids {self.cell_ids}")
         cell_id = data.get("cell_id")
         if cell_id and cell_id in self.cell_ids:
-            self.send_notification(cell_id)
+            cell = self.cell_ids.get(cell_id)
+            print("My cell listened", cell)
+            success = data.get('success')
+            self.send_notification(cell.get('mode'), cell_id, cell.get('slack'), cell.get('email'), success)
             self.cell_ids.remove(cell_id)
 
     def send_slack_notification(self):
@@ -97,16 +100,25 @@ class NotifyExtension(ExtensionApp):
     
     #TODO
     def send_email_notification(self):
+        if not self.email:
+            return
         message = EmailMessage()
         message["Subject"] = "Test Title"
-        message["From"] = getuser()
-        message["To"] = getuser()
+        message["From"] = self.email
+        message["To"] = self.email
 
-        with smtplib.SMTP("localhost") as smtp_conn:
+        with smtplib.SMTP("localhost",1025) as smtp_conn:
             smtp_conn.send_message(message)
 
     #TODO
-    def send_notification(self, cell_id: str):
-        """Send email or slack notification"""
-        self.send_slack_notification()
-        self.send_email_notification()
+    def send_notification(self, mode: str, cell_id: str, slack: str, email: str, success: bool):
+        """Verify and send email or slack notification"""
+        print("send_notification", mode, cell_id, slack, email, success)
+        if mode == 'never':
+            return
+        if mode == 'on-error' and success:
+            return
+        if slack:
+            self.send_slack_notification()
+        if email:
+            self.send_email_notification()

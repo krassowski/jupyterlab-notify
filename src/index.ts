@@ -25,7 +25,7 @@ interface IMode {
   icon: LabIcon;
 }
 
-const ModeIds = ['always', 'never', 'on-error', 'global-timeout', 'custom-timeout'] as const;
+const ModeIds = ['always', 'never', 'on-error', 'global-timeout', 'custom-timeout', 'email', 'slack', 'email-and-slack'] as const;
 type ModeId = typeof ModeIds[number];
 
 const MODES: Record<ModeId, IMode> = {
@@ -48,17 +48,33 @@ const MODES: Record<ModeId, IMode> = {
   'custom-timeout': {
     label: 'If longer than %1',
     icon: bellOutlineIcon // TODO: custom icon with a tiny clock
+  },
+  'email': {
+    label: 'Email Notification',
+    icon: bellOutlineIcon // TODO: custom icon with a tiny mail
+  },
+  'slack': {
+    label: 'Slack Notification',
+    icon: bellOutlineIcon // TODO: custom icon with a tiny slack
+  },
+  'email-and-slack': {
+    label: 'Email and Slack Notification',
+    icon: bellOutlineIcon // TODO: custom icon with a tiny email and slack
   }
 }
 
 
 interface ICellMetadata {
   mode: ModeId;
+  email?: boolean;
+  slack?: boolean;
   timeoutSeconds?: number;
 }
 
-interface INbModelResponse {
-  nbmodel_installed: boolean
+interface IInitialResponse {
+  nbmodel_installed: boolean,
+  email_configured: boolean
+  slack_configured: boolean
 }
 
 /**
@@ -107,7 +123,18 @@ const plugin: JupyterFrontEndPlugin<void> = {
             nextModeIndex = 0;
           }
           const newModeId = ModeIds[nextModeIndex];
-          cell.model.setMetadata(CELL_METADATA_KEY, {...oldMetadata, mode: newModeId});
+          const metadata: ICellMetadata = {...oldMetadata, mode: newModeId, slack: false, email: false}
+          if (newModeId === 'email'){
+            metadata.email = true;
+          }
+          else if(newModeId === 'slack'){
+            metadata.slack = true;
+          }
+          else if(newModeId === 'email-and-slack'){
+            metadata.email = true;
+            metadata.slack = true;
+          }
+          cell.model.setMetadata(CELL_METADATA_KEY, metadata);
           app.commands.notifyCommandChanged(CommandIDs.toggleCellNotifications);
         }
       },
@@ -152,12 +179,17 @@ const plugin: JupyterFrontEndPlugin<void> = {
         });
     }
 
-    let nbmodel_installed = false
+
+    let config: IInitialResponse = {
+      nbmodel_installed: false,
+      email_configured: false,
+      slack_configured: false
+    }
 
     // Check server capability
     try{
-      const response = await requestAPI<INbModelResponse>('notify');
-      nbmodel_installed = response.nbmodel_installed
+      const response = await requestAPI<IInitialResponse>('notify');
+      config = response
       
     } catch(e){
       console.error("Checking server capability failed",e)
@@ -165,14 +197,17 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
     NotebookActions.executionScheduled.connect(async (_, args) => {
       const { cell } = args;
-      const notifyEnabled = cell.model.getMetadata(CELL_METADATA_KEY);
+      const notifyEnabled = cell.model.getMetadata(CELL_METADATA_KEY) as ICellMetadata;
       if (notifyEnabled) {
+        const mode = notifyEnabled.mode;
+        const emailEnabled = config.email_configured && notifyEnabled.email
+        const slackEnabled = config.slack_configured && notifyEnabled.slack
         try {
-          if(nbmodel_installed){
+          if(config.nbmodel_installed){
               // Register with server
               await requestAPI('notify', {
                 method: 'POST',
-                body: JSON.stringify({ cell_id: cell.model.id }),
+                body: JSON.stringify({ cell_id: cell.model.id, mode, emailEnabled, slackEnabled}),
               });
           } else {
             // Fallback to client-side trigger
@@ -180,7 +215,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
               if (args.cell.model.id === cell.model.id) {
                 await requestAPI('notify-trigger', {
                   method: 'POST',
-                  body: JSON.stringify({ cell_id: cell.model.id }),
+                  body: JSON.stringify({ cell_id: cell.model.id, mode, emailEnabled, slackEnabled, success: args.success}),
                 }).catch(console.error);
                 //Disconnect the listener
                 NotebookActions.executed.disconnect(listener);
