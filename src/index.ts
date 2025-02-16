@@ -9,9 +9,11 @@ import { LabIcon } from '@jupyterlab/ui-components';
 import {
   createDefaultFactory,
   IToolbarWidgetRegistry,
+  showErrorMessage,
 } from '@jupyterlab/apputils';
-import { bellOutlineIcon, bellFilledIcon, bellOffIcon, bellAlertIcon } from './icons';
+import { bellOutlineIcon, bellFilledIcon, bellOffIcon, bellAlertIcon, bellClockIcon } from './icons';
 import { requestAPI } from './handler';
+import { Notification } from '@jupyterlab/apputils';
 
 namespace CommandIDs {
   export const toggleCellNotifications = 'toggle-cell-notifications';
@@ -25,7 +27,7 @@ interface IMode {
   icon: LabIcon;
 }
 
-const ModeIds = ['always', 'never', 'on-error', 'global-timeout', 'custom-timeout', 'email', 'slack', 'email-and-slack'] as const;
+const ModeIds = ['always', 'never', 'on-error', 'global-timeout', 'custom-timeout'] as const;
 type ModeId = typeof ModeIds[number];
 
 const MODES: Record<ModeId, IMode> = {
@@ -47,28 +49,21 @@ const MODES: Record<ModeId, IMode> = {
   },
   'custom-timeout': {
     label: 'If longer than %1',
-    icon: bellOutlineIcon // TODO: custom icon with a tiny clock
-  },
-  'email': {
-    label: 'Email Notification',
-    icon: bellOutlineIcon // TODO: custom icon with a tiny mail
-  },
-  'slack': {
-    label: 'Slack Notification',
-    icon: bellOutlineIcon // TODO: custom icon with a tiny slack
-  },
-  'email-and-slack': {
-    label: 'Email and Slack Notification',
-    icon: bellOutlineIcon // TODO: custom icon with a tiny email and slack
+    icon: bellClockIcon
   }
 }
 
+interface INotifySettings {
+  defaultMode: ModeId
+  failureMessage: string
+  mail: boolean
+  slack: boolean
+  successMessage: string
+  threshold: number | null
+}
 
 interface ICellMetadata {
   mode: ModeId;
-  email?: boolean;
-  slack?: boolean;
-  timeoutSeconds?: number;
 }
 
 interface IInitialResponse {
@@ -94,8 +89,46 @@ const plugin: JupyterFrontEndPlugin<void> = {
     settingRegistry: ISettingRegistry | null,
   ) => {
     console.log('JupyterLab extension jupyterlab-notify is activated!');
-    // TODO make it customizable
-    const defaultMode = 'global-timeout';
+    let notifySettings: INotifySettings = {
+      defaultMode: "never",
+      failureMessage: "Cell execution failed",
+      mail: false,
+      slack: false,
+      successMessage: "Cell execution completed successfully",
+      threshold: null,
+    }
+
+    const updateSettings = (setting: ISettingRegistry.ISettings)=>{
+      notifySettings = {...notifySettings, ...setting.composite}
+    }
+
+    if (settingRegistry) {
+      settingRegistry
+        .load(plugin.id)
+        .then(settings => {
+          updateSettings(settings);
+          settings.changed.connect(updateSettings);
+        })
+        .catch(reason => {
+          console.error('Failed to load settings for jupyterlab-notify.', reason);
+        });
+    }
+
+    let config: IInitialResponse = {
+      nbmodel_installed: false,
+      email_configured: false,
+      slack_configured: false
+    }
+
+    // Check server capability
+    try{
+      const response = await requestAPI<IInitialResponse>('notify');
+      config = response
+      
+    } catch(e){
+      console.error("Checking server capability failed",e)
+    }
+
 
     const trans = (translator ?? nullTranslator).load('jupyterlab-notify');
       app.commands.addCommand(CommandIDs.toggleCellNotifications, {
@@ -117,23 +150,13 @@ const plugin: JupyterFrontEndPlugin<void> = {
         }
         for (const cell of current.content.selectedCells) {
           const oldMetadata = cell.model.getMetadata(CELL_METADATA_KEY) as ICellMetadata | undefined;
-          const oldModeId = oldMetadata?.mode ?? defaultMode;
+          const oldModeId = oldMetadata?.mode ?? notifySettings.defaultMode;
           let nextModeIndex = ModeIds.indexOf(oldModeId) + 1;
           if (nextModeIndex >= ModeIds.length) {
             nextModeIndex = 0;
           }
           const newModeId = ModeIds[nextModeIndex];
-          const metadata: ICellMetadata = {...oldMetadata, mode: newModeId, slack: false, email: false}
-          if (newModeId === 'email'){
-            metadata.email = true;
-          }
-          else if(newModeId === 'slack'){
-            metadata.slack = true;
-          }
-          else if(newModeId === 'email-and-slack'){
-            metadata.email = true;
-            metadata.slack = true;
-          }
+          const metadata: ICellMetadata = {...oldMetadata, mode: newModeId}
           cell.model.setMetadata(CELL_METADATA_KEY, metadata);
           app.commands.notifyCommandChanged(CommandIDs.toggleCellNotifications);
         }
@@ -148,7 +171,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
         }
         const cell = current.content.selectedCells[0];
         const metadata = cell.model.getMetadata(CELL_METADATA_KEY) as ICellMetadata | undefined;
-        const modeId = metadata?.mode ?? defaultMode;
+        const modeId = metadata?.mode ?? notifySettings.defaultMode;
         const mode = MODES[modeId];
         return mode.icon;
       },
@@ -168,66 +191,86 @@ const plugin: JupyterFrontEndPlugin<void> = {
       });
     }
 
-    if (settingRegistry) {
-      settingRegistry
-        .load(plugin.id)
-        .then(settings => {
-          console.log('jupyterlab-notify settings loaded:', settings.composite);
-        })
-        .catch(reason => {
-          console.error('Failed to load settings for jupyterlab-notify.', reason);
-        });
-    }
-
-
-    let config: IInitialResponse = {
-      nbmodel_installed: false,
-      email_configured: false,
-      slack_configured: false
-    }
-
-    // Check server capability
-    try{
-      const response = await requestAPI<IInitialResponse>('notify');
-      config = response
-      
-    } catch(e){
-      console.error("Checking server capability failed",e)
-    }
-
     NotebookActions.executionScheduled.connect(async (_, args) => {
       const { cell } = args;
-      const notifyEnabled = cell.model.getMetadata(CELL_METADATA_KEY) as ICellMetadata;
-      if (notifyEnabled) {
-        const mode = notifyEnabled.mode;
-        const emailEnabled = config.email_configured && notifyEnabled.email
-        const slackEnabled = config.slack_configured && notifyEnabled.slack
-        try {
-          if(config.nbmodel_installed){
-              // Register with server
-              await requestAPI('notify', {
-                method: 'POST',
-                body: JSON.stringify({ cell_id: cell.model.id, mode, emailEnabled, slackEnabled}),
-              });
-          } else {
-            // Fallback to client-side trigger
-            const listener = async (_:any,args:any) => {
-              if (args.cell.model.id === cell.model.id) {
-                await requestAPI('notify-trigger', {
-                  method: 'POST',
-                  body: JSON.stringify({ cell_id: cell.model.id, mode, emailEnabled, slackEnabled, success: args.success}),
-                }).catch(console.error);
-                //Disconnect the listener
-                NotebookActions.executed.disconnect(listener);
+      const cellMetadata = cell.model.getMetadata(CELL_METADATA_KEY) as ICellMetadata;
+      const mode = cellMetadata?.mode ?? notifySettings.defaultMode;
+      if(mode==="never") return;
+      if(notifySettings.mail && !config.email_configured){
+        Notification.emit('Email Not Configured', 'error', {
+          autoClose: 3000,
+          actions: [
+            {
+              label: 'Help',
+              callback: () => {
+                showErrorMessage('Email hasn\'t been configured in the config file', {
+                  message: `Email hasn't been configured in the config file, so notifications via email won't work. To stop seeing this warning, either disable email notifications in settings or add an email in \`~/.jupyter/jupyterlab_notify_config.json\` as:\n{
+                    "email": "your-email@example.com"
+                  }`
+                });
               }
-            };
-            NotebookActions.executed.connect(listener);
-          }
-        } catch (error) {
-          console.error('Notification registration failed:', error);
-        }
+            }
+          ]
+        });
       }
-    });
+      if(notifySettings.slack && !config.slack_configured){
+        Notification.emit('Slack Not Configured', 'error', {
+          autoClose: 3000,
+          actions: [
+            {
+              label: 'Help',
+              callback: () => {
+                showErrorMessage('Slack hasn\'t been configured in the config file', {
+                  message: `Slack hasn\'t been configured in the config file, so notifications via Slack won\'t work. To stop seeing this warning, either disable Slack notifications in settings or add a Slack token in \`~/.jupyter/jupyterlab_notify_config.json\` as:\n{
+                  "slack_token": "xoxb-your-slack-token",
+                  "slack_channel_name": "your-channel-name"
+                }`
+                });
+              }
+            }
+          ]
+        });
+      }
+      const emailEnabled = config.email_configured && notifySettings.mail
+      const slackEnabled = config.slack_configured && notifySettings.slack
+      try {
+        const payload = {
+          cell_id: cell.model.id,
+          mode,
+          emailEnabled,
+          slackEnabled,
+          successMessage: notifySettings.successMessage,
+          failureMessage: notifySettings.failureMessage,
+          threshold: notifySettings.threshold,
+        }
+        if(config.nbmodel_installed){
+            // Register with server
+            await requestAPI('notify', {
+              method: 'POST',
+              body: JSON.stringify(payload),
+            });
+        } else {
+          // Fallback to client-side trigger
+          const listener = async (_:any,args:any) => {
+            if (args.cell.model.id === cell.model.id) {
+              await requestAPI('notify-trigger', {
+                method: 'POST',
+                body: JSON.stringify({
+                ...payload,
+                success: args.success,
+                error: args.error ?? null
+                }),
+              }).catch(console.error);
+              //Disconnect the listener
+              NotebookActions.executed.disconnect(listener);
+            }
+          };
+          NotebookActions.executed.connect(listener);
+        }
+      } catch (error) {
+        console.error('Notification registration failed:', error);
+      }
+  });
   },
 };
 

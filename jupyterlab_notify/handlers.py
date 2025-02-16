@@ -36,6 +36,9 @@ class NotifyHandler(ExtensionHandlerMixin, JupyterHandler):
         mode = body.get('mode',None)
         slack = body.get('slackEnabled',False)
         email = body.get('emailEnabled',False)
+        success_message = body.get('successMessage')
+        failure_message = body.get('failureMessage')
+        threshold = body.get('threshold',None)
         
         if not cell_id:
             self.set_status(HTTPStatus.BAD_REQUEST)
@@ -46,7 +49,10 @@ class NotifyHandler(ExtensionHandlerMixin, JupyterHandler):
         self.extension_app.cell_ids[cell_id] = {
             'mode': mode,
             'slack': slack,
-            'email': email
+            'email': email,
+            'success_msg': success_message,
+            'failure_message': failure_message,
+            'threshold': threshold
         }
         self.set_status(HTTPStatus.OK)
         self.finish({"accepted": True})
@@ -65,13 +71,17 @@ class NotifyTriggerHandler(ExtensionHandlerMixin, JupyterHandler):
         slack = data.get("slackEnabled", False)
         email = data.get("emailEnabled", False)
         success = data.get("success")
+        error = data.get("error", None)
+        success_message = data.get('successMessage')
+        failure_message = data.get('failureMessage')
+        threshold = data.get('threshold',None)
         
         if not cell_id or not success:
             self.set_status(HTTPStatus.BAD_REQUEST)
             self.finish({"error": "Missing cell_id or success status in request"})
             return
         
-        self.extension_app.send_notification(mode, cell_id, slack, email, success)
+        self.extension_app.send_notification(mode, cell_id, slack, email, success, success_message, failure_message, error)
         self.set_status(HTTPStatus.OK)
         self.finish({"done": True})
         
