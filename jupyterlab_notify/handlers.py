@@ -4,7 +4,7 @@ from http import HTTPStatus
 import json
 import logging
 import tornado
-# import json
+from .config import NotificationParams
 
 
 class NotifyHandler(ExtensionHandlerMixin, JupyterHandler):
@@ -31,29 +31,21 @@ class NotifyHandler(ExtensionHandlerMixin, JupyterHandler):
     @tornado.web.authenticated
     async def post(self):
         """Register cell ID for notifications"""
-        body = json.loads(self.request.body.decode('utf-8'))
-        cell_id = body.get('cell_id',None)
-        mode = body.get('mode',None)
-        slack = body.get('slackEnabled',False)
-        email = body.get('emailEnabled',False)
-        success_message = body.get('successMessage')
-        failure_message = body.get('failureMessage')
-        threshold = body.get('threshold',None)
-        
-        if not cell_id:
+        try:
+            body = json.loads(self.request.body)
+            print("\nSlack and email",body.get("slackEnabled"),body.get("emailEnabled"),"\n")
+            params = NotificationParams(**body)  # Pydantic will validate
+        except json.JSONDecodeError:
             self.set_status(HTTPStatus.BAD_REQUEST)
-            self.finish({"error": "Missing cell_id in request"})
+            self.finish({"error": "Invalid JSON in request"})
+            return
+        except ValueError as e:
+            self.set_status(HTTPStatus.BAD_REQUEST)
+            self.finish({"error": str(e)})
             return
         
-        self.logger.debug(f"Posting cell_id {cell_id}")
-        self.extension_app.cell_ids[cell_id] = {
-            'mode': mode,
-            'slack': slack,
-            'email': email,
-            'success_msg': success_message,
-            'failure_message': failure_message,
-            'threshold': threshold
-        }
+        self.logger.debug(f"Posting cell_id {params.cell_id}")
+        self.extension_app.cell_ids[params.cell_id] = params
         self.set_status(HTTPStatus.OK)
         self.finish({"accepted": True})
 
@@ -65,23 +57,19 @@ class NotifyTriggerHandler(ExtensionHandlerMixin, JupyterHandler):
     @tornado.web.authenticated
     async def post(self):
         """Trigger notification directly"""
-        data = self.get_json_body()
-        cell_id = data.get("cell_id")
-        mode = data.get("mode")
-        slack = data.get("slackEnabled", False)
-        email = data.get("emailEnabled", False)
-        success = data.get("success")
-        error = data.get("error", None)
-        success_message = data.get('successMessage')
-        failure_message = data.get('failureMessage')
-        threshold = data.get('threshold',None)
-        
-        if not cell_id or not success:
+        try:
+            body = json.loads(self.request.body)
+            params = NotificationParams(**body)  # Pydantic will validate
+        except json.JSONDecodeError:
             self.set_status(HTTPStatus.BAD_REQUEST)
-            self.finish({"error": "Missing cell_id or success status in request"})
+            self.finish({"error": "Invalid JSON in request"})
+            return
+        except ValueError as e: 
+            self.set_status(HTTPStatus.BAD_REQUEST)
+            self.finish({"error": str(e)})
             return
         
-        self.extension_app.send_notification(mode, cell_id, slack, email, success, success_message, failure_message, error)
+        self.extension_app.send_notification(params)
         self.set_status(HTTPStatus.OK)
         self.finish({"done": True})
         

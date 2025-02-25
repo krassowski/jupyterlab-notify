@@ -2,7 +2,7 @@ import {
   JupyterFrontEnd,
   JupyterFrontEndPlugin,
 } from '@jupyterlab/application';
-import { INotebookTracker, NotebookActions } from '@jupyterlab/notebook';
+import { INotebookTracker, NotebookActions, NotebookPanel } from '@jupyterlab/notebook';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
 import { ITranslator, nullTranslator } from '@jupyterlab/translation';
 import { LabIcon } from '@jupyterlab/ui-components';
@@ -14,6 +14,7 @@ import {
 import { bellOutlineIcon, bellFilledIcon, bellOffIcon, bellAlertIcon, bellClockIcon } from './icons';
 import { requestAPI } from './handler';
 import { Notification } from '@jupyterlab/apputils';
+import { ICellModel } from '@jupyterlab/cells';
 
 namespace CommandIDs {
   export const toggleCellNotifications = 'toggle-cell-notifications';
@@ -129,6 +130,41 @@ const plugin: JupyterFrontEndPlugin<void> = {
       console.error("Checking server capability failed",e)
     }
 
+    const changeCellMetadata = (cell: ICellModel, newCell: boolean = false) => {
+      const oldMetadata = cell.getMetadata(CELL_METADATA_KEY) as ICellMetadata | undefined;
+      const oldModeId = oldMetadata?.mode
+      let nextModeIndex = oldModeId ? ModeIds.indexOf(oldModeId) + 1 : ModeIds.indexOf(notifySettings.defaultMode);
+      if (nextModeIndex >= ModeIds.length) {
+        nextModeIndex = 0;
+      }
+      const newModeId = ModeIds[nextModeIndex];
+      const metadata: ICellMetadata = { mode: newModeId }
+      cell.setMetadata(CELL_METADATA_KEY, metadata);
+      app.commands.notifyCommandChanged(CommandIDs.toggleCellNotifications);
+    };
+
+    // Add metadata to newly created cell
+    const addCellMetadata = (cell: ICellModel, newCell: boolean = false) => {
+      const oldMetadata = cell.getMetadata(CELL_METADATA_KEY) as ICellMetadata | undefined;
+      if(oldMetadata) return;
+      cell.setMetadata(CELL_METADATA_KEY, { mode: notifySettings.defaultMode } );
+      app.commands.notifyCommandChanged(CommandIDs.toggleCellNotifications);
+    };
+
+    // Track notebook changes
+    tracker.widgetAdded.connect((_, notebookPanel: NotebookPanel) => {
+      const notebook = notebookPanel.content;
+
+      // Only listen for new cell additions
+      notebook.model?.cells.changed.connect((_, change) => {
+        if (change.type === 'add') {
+          // Add metadata only to newly created cells
+          change.newValues.forEach(cell => {
+            addCellMetadata(cell);
+          });
+        }
+      });
+    });
 
     const trans = (translator ?? nullTranslator).load('jupyterlab-notify');
       app.commands.addCommand(CommandIDs.toggleCellNotifications, {
@@ -149,16 +185,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
           return;
         }
         for (const cell of current.content.selectedCells) {
-          const oldMetadata = cell.model.getMetadata(CELL_METADATA_KEY) as ICellMetadata | undefined;
-          const oldModeId = oldMetadata?.mode ?? notifySettings.defaultMode;
-          let nextModeIndex = ModeIds.indexOf(oldModeId) + 1;
-          if (nextModeIndex >= ModeIds.length) {
-            nextModeIndex = 0;
-          }
-          const newModeId = ModeIds[nextModeIndex];
-          const metadata: ICellMetadata = {...oldMetadata, mode: newModeId}
-          cell.model.setMetadata(CELL_METADATA_KEY, metadata);
-          app.commands.notifyCommandChanged(CommandIDs.toggleCellNotifications);
+          changeCellMetadata(cell.model)
         }
       },
       icon: args => {

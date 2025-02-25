@@ -5,6 +5,22 @@ from traitlets.config import Configurable
 from traitlets import Unicode, default, Any
 from importlib import import_module
 import inspect
+from pydantic import BaseModel, Field
+from typing import Optional
+
+class NotificationParams(BaseModel):
+    cell_id: str
+    mode: str
+    slack: bool = Field(alias="slackEnabled")
+    email: bool = Field(alias="emailEnabled")
+    success_message: str = Field(alias="successMessage")
+    failure_message: str = Field(alias="failureMessage")
+    threshold: int
+    error: Optional[str] = Field(default=None)
+    success: Optional[bool] = Field(default=False)
+
+    class Config:
+        extra = "ignore"  # Ignores any extra fields in the request body
 
 class SMTPConfigurationError(Exception):
     pass
