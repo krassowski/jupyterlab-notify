@@ -74,12 +74,14 @@ class NotifyExtension(ExtensionApp):
         cell_id = data.get("cell_id")
         if cell_id and cell_id in self.cell_ids:
             cell = self.cell_ids.get(cell_id)
+            if cell.timer:
+                cell.timer.cancel()
             cell.success = data.get('success')
             cell.error = data.get('kernel_error')
             self.logger.debug(f"Sending Notification-1: {cell}")
             self.send_notification(cell)
             self.cell_ids.remove(cell_id)
-    def send_slack_notification(self, success: bool, success_msg: str, failure_msg: str, error: Optional[str]):
+    def send_slack_notification(self, message_content: str):
         self.logger.debug("Sending slack notification!")
         if self.slack_imported and self.slack_client:
             try:
@@ -93,38 +95,43 @@ class NotifyExtension(ExtensionApp):
                     except Exception as e:
                         self.logger.error(f"Failed to open DM conversation: {e}")
                 if channel_name:
-                    message = f"Execution Status: {'Success' if success else 'Failure'}\n\nDetails:\n{success_msg if success else failure_msg}"
-                    if error:
-                        message += f"\n\nError:\n{error}"
-                    self.slack_client.chat_postMessage(channel=channel_name, text=message)
+                    self.slack_client.chat_postMessage(channel=channel_name, text=message_content)
             except Exception as e:
                 self.logger.error(f"Failed to notify through slack: {e}")
     
-    def send_email_notification(self, success: bool, success_msg: str, failure_msg: str, error: Optional[str]):
+    def send_email_notification(self, message_content: str):
         self.logger.debug("Sending email notification")
         if not self.email:
             return
-        message = EmailMessage()
-        message["Subject"] = "Jupyter Cell Execution Status"
-        message["From"] = self.email
-        message["To"] = self.email
-        status = "Success" if success else "Failure"
-        body = f"Execution Status: {status}\n\nDetails:\n{success_msg if success else failure_msg}"
-        if error:
-            body += f"\n\nError:\n{error}"
-        message.set_content(body)
-        self._config.smtp_instance.send_message(message)
+        email_message = EmailMessage()
+        email_message["Subject"] = "Jupyter Cell Execution Status"
+        email_message["From"] = self.email
+        email_message["To"] = self.email
+        email_message.set_content(message_content)
+        self._config.smtp_instance.send_message(email_message)
         # with smtplib.SMTP("localhost",1025) as smtp_conn:
         #     smtp_conn.send_message(message)
 
     def send_notification(self, params: NotificationParams):
         """Verify and send email or slack notification"""
         self.logger.debug(f"Sending notifications {params}")
+        status = "Success" if params.success else "Failed"
+        message = params.success_message if params.success else params.failure_message
+        if params.timer and params.timer.is_alive():
+            params.timer.cancel()
+            del self.cell_ids[params.cell_id]
+            status = "Timeout"
+            message = "Cell execution timed out!"
         if params.mode == 'never':
             return
         if params.mode == 'on-error' and params.success:
             return
+        if not params.success and params.error:
+            message += f"\nError:\n{params.error}"
+
+        formatted_message = f"Execution Status: {status}\nDetails: {message}"
+
         if params.slack:
-            self.send_slack_notification(params.success, params.success_message, params.failure_message, params.error)
+            self.send_slack_notification(formatted_message)
         if params.email:
-            self.send_email_notification(params.success, params.success_message, params.failure_message, params.error)
+            self.send_email_notification(formatted_message)

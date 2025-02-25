@@ -5,7 +5,8 @@ import json
 import logging
 import tornado
 from .config import NotificationParams
-
+import threading
+from datetime import datetime
 
 class NotifyHandler(ExtensionHandlerMixin, JupyterHandler):
     def initialize(self, extension_app, *args, **kwargs):
@@ -45,6 +46,11 @@ class NotifyHandler(ExtensionHandlerMixin, JupyterHandler):
             return
         
         self.logger.debug(f"Posting cell_id {params.cell_id}")
+        # Threshold monitoring
+        if(params.mode == 'custom-timeout' or params.mode == 'global-timeout'):
+            timer = threading.Timer(params.threshold, self.extension_app.send_notification, args=(params,))
+            params.timer = timer
+            timer.start()
         self.extension_app.cell_ids[params.cell_id] = params
         self.set_status(HTTPStatus.OK)
         self.finish({"accepted": True})

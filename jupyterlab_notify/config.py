@@ -7,6 +7,7 @@ from importlib import import_module
 import inspect
 from pydantic import BaseModel, Field
 from typing import Optional
+from threading import Timer
 
 class NotificationParams(BaseModel):
     cell_id: str
@@ -18,9 +19,11 @@ class NotificationParams(BaseModel):
     threshold: int
     error: Optional[str] = Field(default=None)
     success: Optional[bool] = Field(default=False)
+    timer: Optional[Timer] = Field(default=None)
 
     class Config:
         extra = "ignore"  # Ignores any extra fields in the request body
+        arbitrary_types_allowed = True
 
 class SMTPConfigurationError(Exception):
     pass

@@ -170,17 +170,33 @@ const plugin: JupyterFrontEndPlugin<void> = {
       app.commands.addCommand(CommandIDs.toggleCellNotifications, {
       label: args => {
         const current = tracker.currentWidget;
-        return trans._n(
-          'Toggle Notifications for Selected Cell',
-          'Toggle Notifications for %1 Selected Cells',
-          current?.content.selectedCells.length ?? 1,
-        );
+        if (!current) {
+          return trans._n(
+        'Toggle Notifications for Selected Cell',
+        'Toggle Notifications for %1 Selected Cells',
+        1,
+          );
+        }
+        const selectedCells = current.content.selectedCells;
+        if (selectedCells.length === 1) {
+          const cell = selectedCells[0];
+          const metadata = cell.model.getMetadata(CELL_METADATA_KEY) as ICellMetadata | undefined;
+          const modeId = metadata?.mode ?? notifySettings.defaultMode;
+          const mode = MODES[modeId];
+          return `${mode.label} (click to toggle)`;
+        } else {
+          return trans._n(
+        'Toggle Notifications for Selected Cell',
+        'Toggle Notifications for %1 Selected Cells',
+        selectedCells.length,
+          );
+        }
       },
       execute: args => {
         const current = tracker.currentWidget;
         if (!current) {
           console.warn(
-            'Cannot toggle notifications on cells - no notebook selected',
+        'Cannot toggle notifications on cells - no notebook selected',
           );
           return;
         }
@@ -203,7 +219,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
         return mode.icon;
       },
       isEnabled: args => (args.toolbar ? true : !!tracker.currentWidget),
-    });
+        });
 
     if (toolbarRegistry) {
       // TODO: add a dropdown to select timeout
