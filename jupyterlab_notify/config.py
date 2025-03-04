@@ -23,7 +23,7 @@ class NotificationParams(BaseModel):
 
     class Config:
         extra = "ignore"  # Ignores any extra fields in the request body
-        arbitrary_types_allowed = True
+        arbitrary_types_allowed = True # For allowing timer
 
 class SMTPConfigurationError(Exception):
     pass
