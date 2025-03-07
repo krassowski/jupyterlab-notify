@@ -36,17 +36,10 @@ jobs:
       - name: Build extension
         run: jlpm build
 
-      - name: Launch JupyterLab
-        run: |
-          jupyter lab --no-browser --port=8888 --NotebookApp.token='' --NotebookApp.password='' &
-
       - name: Install browser
         run: |
           cd ui-tests
           jlpm playwright install chromium
-
-      - name: Wait for JupyterLab
-        run: npx wait-on@7.2.0 http-get://localhost:8888/lab -t 360000
 
       # Run the Galata tests
       - name: Run UI Tests
