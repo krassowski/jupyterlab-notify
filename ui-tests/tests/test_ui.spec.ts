@@ -108,6 +108,7 @@ test('Notification triggers on cell execution with "always" mode', async ({
   await page.notebook.enterCellEditingMode(0);
   await page.keyboard.type('print("Hello")');
   await page.notebook.runCell(0);
+  await page.waitForTimeout(500); // Wait for notification
 
   // Verify success notification
   const successNotifications = await page.evaluate(() => {
@@ -126,6 +127,7 @@ test('Notification triggers on cell execution with "always" mode', async ({
   await page.notebook.enterCellEditingMode(1);
   await page.keyboard.type('raise Exception("Error")');
   await page.notebook.runCell(1);
+  await page.waitForTimeout(500); // Wait for notification
 
   // Verify error notification
   const allNotifications = await page.evaluate(() => {
@@ -160,6 +162,7 @@ test('Notification triggers only on error with "on-error" mode', async ({
   await page.notebook.enterCellEditingMode(0);
   await page.keyboard.type('print("Hello")');
   await page.notebook.runCell(0);
+  await page.waitForTimeout(500); // Wait for notification
 
   // No notification expected for success
   const successNotifications = await page.evaluate(
@@ -171,6 +174,7 @@ test('Notification triggers only on error with "on-error" mode', async ({
   await page.notebook.enterCellEditingMode(0);
   await page.keyboard.type('raise Exception("Error")');
   await page.notebook.runCell(0);
+  await page.waitForTimeout(500); // Wait for notification
 
   // Verify error notification
   const errorNotifications = await page.evaluate(
@@ -211,6 +215,7 @@ test('Notification triggers only on timeout with "global-timeout" mode', async (
   await page.notebook.enterCellEditingMode(0);
   await page.keyboard.type('import time; time.sleep(2)');
   await page.notebook.runCell(0);
+  await page.waitForTimeout(500); // Wait for notification
 
   // Verify timeout notification
   const notifications = await page.evaluate(() => window.mockNotifications);
