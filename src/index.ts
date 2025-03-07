@@ -194,13 +194,17 @@ const plugin: JupyterFrontEndPlugin<void> = {
       let nextModeIndex = oldModeId
         ? ModeIds.indexOf(oldModeId) + 1
         : ModeIds.indexOf(notifySettings.defaultMode);
-      if (nextModeIndex >= ModeIds.length) nextModeIndex = 0;
+      if (nextModeIndex >= ModeIds.length) {
+        nextModeIndex = 0;
+      }
       cell.setMetadata(CELL_METADATA_KEY, { mode: ModeIds[nextModeIndex] });
       app.commands.notifyCommandChanged(CommandIDs.toggleCellNotifications);
     };
 
     const addCellMetadata = (cell: ICellModel): void => {
-      if (cell.getMetadata(CELL_METADATA_KEY)) return;
+      if (cell.getMetadata(CELL_METADATA_KEY)) {
+        return;
+      }
       cell.setMetadata(CELL_METADATA_KEY, { mode: notifySettings.defaultMode });
       app.commands.notifyCommandChanged(CommandIDs.toggleCellNotifications);
     };
@@ -224,10 +228,14 @@ const plugin: JupyterFrontEndPlugin<void> = {
       threshold = false,
     ): Promise<void> => {
       const notification = cellNotificationMap.get(cellId);
-      if (!notification || notification.notificationIssued) return;
+      if (!notification || notification.notificationIssued) {
+        return;
+      }
 
       const { payload } = notification;
-      if (payload.mode === 'on-error' && success && !threshold) return;
+      if (payload.mode === 'on-error' && success && !threshold) {
+        return;
+      }
 
       // Determine appropriate message based on execution state
       const message = threshold
@@ -261,7 +269,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
         console.error('Error rendering notification:', err);
       }
 
-      if (notification.timeoutId) clearTimeout(notification.timeoutId);
+      if (notification.timeoutId) {
+        clearTimeout(notification.timeoutId);
+      }
       cellNotificationMap.delete(cellId);
     };
 
@@ -276,9 +286,11 @@ const plugin: JupyterFrontEndPlugin<void> = {
         CELL_METADATA_KEY,
       ) as ICellMetadata;
       const mode = cellMetadata?.mode;
-      if (!mode || mode === 'never') return;
+      if (!mode || mode === 'never') {
+        return;
+      }
 
-      if (Notification.permission != 'granted') {
+      if (Notification.permission !== 'granted') {
         Notification.requestPermission().catch(err => {
           JupyterNotification.emit('Permission Error', 'error', {
             autoClose: 3000,
@@ -349,7 +361,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
     app.commands.addCommand(CommandIDs.toggleCellNotifications, {
       label: args => {
         const current = tracker.currentWidget;
-        if (!current) return trans.__('Toggle Notifications for Selected Cell');
+        if (!current) {
+          return trans.__('Toggle Notifications for Selected Cell');
+        }
         const selectedCells = current.content.selectedCells;
         if (selectedCells.length === 1) {
           const metadata = selectedCells[0].model.getMetadata(
@@ -366,13 +380,17 @@ const plugin: JupyterFrontEndPlugin<void> = {
       },
       execute: () => {
         const current = tracker.currentWidget;
-        if (!current) return console.warn('No notebook selected');
+        if (!current) {
+          return console.warn('No notebook selected');
+        }
         current.content.selectedCells.forEach(cell =>
           changeCellMetadata(cell.model),
         );
       },
       icon: args => {
-        if (!args.toolbar || !tracker.currentWidget) return undefined;
+        if (!args.toolbar || !tracker.currentWidget) {
+          return undefined;
+        }
         const cell = tracker.currentWidget.content.selectedCells[0];
         const metadata = cell.model.getMetadata(CELL_METADATA_KEY) as
           | ICellMetadata

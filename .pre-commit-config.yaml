@@ -29,3 +29,8 @@ repos:
         language: node
         types_or: [json, ts, tsx, javascript, jsx, css]
         exclude: \.ipynb$
+      - id: eslint
+        name: eslint
+        entry: 'npm run eslint --fix'
+        language: node
+        types_or: [ts, tsx, javascript, jsx]
