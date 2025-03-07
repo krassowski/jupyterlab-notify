@@ -57,15 +57,15 @@ interface ICellNotification {
 }
 
 // Constants
-const ModeIds = ['always', 'never', 'on-error', 'global-timeout', 'custom-timeout'] as const;
+const ModeIds = ['never' ,'always', 'on-error', 'global-timeout', 'custom-timeout'] as const;
 type ModeId = typeof ModeIds[number];
 
 const MODES: Record<ModeId, IMode> = {
   always: { label: 'Always', icon: bellFilledIcon },
   never: { label: 'Never', icon: bellOffIcon },
   'on-error': { label: 'On error', icon: bellAlertIcon },
-  'global-timeout': { label: 'If longer than global timeout', icon: bellOutlineIcon },
-  'custom-timeout': { label: 'If longer than %1', icon: bellClockIcon },
+  'global-timeout': { label: 'If longer than global timeout', icon: bellClockIcon },
+  'custom-timeout': { label: 'If longer than %1', icon: bellOutlineIcon }, //Todo: change icon
 };
 
 /**
