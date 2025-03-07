@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "title": "Notify",
+  "description": "jupyterlab-notify settings.",
+  "jupyter.lab.setting-icon": "notify:bell-outline",
+  "jupyter.lab.toolbars": {
+    "Cell": [
+      {
+        "name": "notify",
+        "command": "notify:toggle-cell-notifications"
+      }
+    ]
+  },
+  "properties": {
+    "threshold": {
+      "title": "Threshold",
+      "description": "Threshold-based notifications (unit in seconds)",
+      "type": ["number", "null"],
+      "default": null,
+      "minimum": 0
+    },
+    "successMessage": {
+      "title": "Success message",
+      "description": "Default message shown on successful cell execution",
+      "type": "string",
+      "default": "Cell execution completed successfully"
+    },
+    "failureMessage": {
+      "title": "Failure message",
+      "description": "Default message shown on cell execution failure",
+      "type": "string",
+      "default": "Cell execution failed"
+    },
+    "mail": {
+      "title": "Send email",
+      "description": "Send email notification including the cell result",
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "additionalProperties": false,
+  "type": "object"
+}
