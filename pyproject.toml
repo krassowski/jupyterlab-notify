@@ -28,6 +28,7 @@ dynamic = ["version", "description", "authors", "urls", "keywords"]
 
 [project.optional-dependencies]
 test = [
+    "ipython>=8.0.0",
     "pytest",
     "pytest-asyncio",
     "pytest-tornado",
