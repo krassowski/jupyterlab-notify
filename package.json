@@ -93,7 +93,9 @@
     "dist",
     "coverage",
     "**/*.d.ts",
-    "tests"
+    "tests",
+    "**/__tests__",
+    "ui-tests"
   ],
   "prettier": {
     "singleQuote": true,
