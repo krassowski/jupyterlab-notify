@@ -6,7 +6,9 @@ from jupyter_server.extension.application import ExtensionApp
 from .handlers import NotifyHandler, NotifyTriggerHandler
 from .config import NotificationConfig, NotificationParams
 
-NBMODEL_SCHEMA_ID = "https://events.jupyter.org/jupyter_server_nbmodel/cell_execution/v1"
+NBMODEL_SCHEMA_ID = (
+    "https://events.jupyter.org/jupyter_server_nbmodel/cell_execution/v1"
+)
 
 
 class NotifyExtension(ExtensionApp):
@@ -21,7 +23,7 @@ class NotifyExtension(ExtensionApp):
 
     def _init_logging(self) -> None:
         """Setup logging for the extension."""
-        self.logger = logging.getLogger('jupyter-notify')
+        self.logger = logging.getLogger("jupyter-notify")
         self.logger.setLevel(logging.DEBUG)
         if not self.logger.hasHandlers():
             console_handler = logging.StreamHandler()
@@ -41,6 +43,7 @@ class NotifyExtension(ExtensionApp):
 
         try:
             import slack  # type: ignore
+
             if self._config.slack_token:
                 self.slack_client = slack.WebClient(token=self._config.slack_token)
             self.slack_imported = True
@@ -51,23 +54,31 @@ class NotifyExtension(ExtensionApp):
         """Initialize event listener if jupyter_server_nbmodel is available."""
         try:
             from jupyter_server_nbmodel.event_logger import event_logger
+
             self.logger.debug("Registering event listener for nbmodel events.")
             event_logger.add_listener(
-                schema_id=NBMODEL_SCHEMA_ID,
-                listener=self.event_listener
+                schema_id=NBMODEL_SCHEMA_ID, listener=self.event_listener
             )
             self.is_listening = True
         except ImportError:
-            self.logger.debug("jupyter_server_nbmodel not available; skipping event listener.")
+            self.logger.debug(
+                "jupyter_server_nbmodel not available; skipping event listener."
+            )
             self.is_listening = False
 
     def initialize_handlers(self) -> None:
         """Register API handlers for notification endpoints."""
         self.cell_ids: Dict[str, NotificationParams] = {}
-        self.handlers.extend([
-            (r"/api/jupyter-notify/notify", NotifyHandler, {"extension_app": self}),
-            (r"/api/jupyter-notify/notify-trigger", NotifyTriggerHandler, {"extension_app": self})
-        ])
+        self.handlers.extend(
+            [
+                (r"/api/jupyter-notify/notify", NotifyHandler, {"extension_app": self}),
+                (
+                    r"/api/jupyter-notify/notify-trigger",
+                    NotifyTriggerHandler,
+                    {"extension_app": self},
+                ),
+            ]
+        )
 
     async def event_listener(self, logger: Any, schema_id: str, data: dict) -> None:
         """
@@ -87,8 +98,8 @@ class NotifyExtension(ExtensionApp):
             params = self.cell_ids[cell_id]
             if params.timer:
                 params.timer.cancel()
-            params.success = data.get('success')
-            params.error = data.get('kernel_error')
+            params.success = data.get("success")
+            params.error = data.get("kernel_error")
             self.logger.debug(f"Notifying for cell_id {cell_id}: {params}")
             self.send_notification(params)
             # Remove cell record after notification is sent.
@@ -110,7 +121,9 @@ class NotifyExtension(ExtensionApp):
         # If a specific Slack user is set, try opening a DM channel.
         if self.slack_user_id:
             try:
-                response = self.slack_client.conversations_open(users=[self.slack_user_id])
+                response = self.slack_client.conversations_open(
+                    users=[self.slack_user_id]
+                )
                 channel = response["channel"]["id"]
             except Exception as exc:
                 self.logger.error(f"Failed to open DM conversation: {exc}")
@@ -159,16 +172,22 @@ class NotifyExtension(ExtensionApp):
             message = "Cell execution timed out!"
         else:
             status = "Success" if params.success else "Failed"
-            message = params.success_message if params.success else params.failure_message
+            message = (
+                params.success_message if params.success else params.failure_message
+            )
             if not params.success and params.error:
                 message += f"\nError:\n{params.error}"
 
         # Decide whether to send the notification based on mode
-        if params.mode == 'never' or (params.mode == 'on-error' and params.success):
-            self.logger.debug("Notification mode conditions not met; skipping notification.")
+        if params.mode == "never" or (params.mode == "on-error" and params.success):
+            self.logger.debug(
+                "Notification mode conditions not met; skipping notification."
+            )
             return
 
-        formatted_message = f"Execution Status: {status}\nCell id: {params.cell_id}\nDetails: {message}"
+        formatted_message = (
+            f"Execution Status: {status}\nCell id: {params.cell_id}\nDetails: {message}"
+        )
         self.logger.debug(f"Formatted notification message: {formatted_message}")
 
         if params.slack:

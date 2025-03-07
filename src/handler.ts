@@ -11,14 +11,14 @@ import { ServerConnection } from '@jupyterlab/services';
  */
 export async function requestAPI<T>(
   endPoint = '',
-  init: RequestInit = {}
+  init: RequestInit = {},
 ): Promise<T> {
   // Make request to Jupyter API
   const settings = ServerConnection.makeSettings();
   const requestUrl = URLExt.join(
     settings.baseUrl,
     'api/jupyter-notify', // API Namespace
-    endPoint
+    endPoint,
   );
 
   let response: Response;
@@ -41,6 +41,6 @@ export async function requestAPI<T>(
   if (!response.ok) {
     throw new ServerConnection.ResponseError(response, data.message || data);
   }
-  console.log("Response:",data);
+  console.log('Response:', data);
   return data;
 }

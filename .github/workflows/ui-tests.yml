@@ -1,0 +1,76 @@
+name: UI Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  test:
+    name: UI Tests
+    timeout-minutes: 80
+    runs-on: ubuntu-22.04
+    steps:
+      # Checkout the repository
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Set up Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Cache Playwright browsers
+      - name: Set up browser cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/pw-browsers
+          key: ${{ runner.os }}-${{ hashFiles('ui-tests/yarn.lock') }}
+
+      # Install dependencies
+      - name: Install dependencies
+        run: |
+          yarn install --frozen-lockfile
+          cd ui-tests
+          yarn install --frozen-lockfile
+
+      # Build your extension (if needed)
+      - name: Build extension
+        run: yarn build
+
+      # Launch JupyterLab in the background
+      - name: Launch JupyterLab
+        run: |
+          jupyter lab --no-browser --port=8888 --NotebookApp.token='' --NotebookApp.password='' &
+
+      # Install Playwright browsers
+      - name: Install browser
+        run: |
+          cd ui-tests
+          yarn playwright install chromium
+
+      # Wait for JupyterLab to be ready
+      - name: Wait for JupyterLab
+        run: npx wait-on@7.2.0 http-get://localhost:8888/lab -t 360000
+
+      # Run the Galata tests
+      - name: Run UI Tests
+        run: |
+          cd ui-tests
+          yarn test
+
+      # Upload test results
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: ui-tests/test-results

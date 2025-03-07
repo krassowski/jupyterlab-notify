@@ -25,34 +25,41 @@ def setup_logger(name: str) -> logging.Logger:
 class NotifyHandler(ExtensionHandlerMixin, JupyterHandler):
     """
     Handler to register cell IDs for notifications.
-    
+
     GET:
         Returns the status of nbmodel event listening and notification configurations.
-        
+
     POST:
         Registers a cell ID and schedules a notification if a threshold is set.
     """
 
     def initialize(self, extension_app: Any, *args: Any, **kwargs: Any) -> None:
-        self.logger = setup_logger('jupyter-notify')
+        self.logger = setup_logger("jupyter-notify")
         self.extension_app = extension_app
         super().initialize(*args, **kwargs)
 
     @tornado.web.authenticated
     def get(self) -> None:
         """Check if the extension is listening for nbmodel events and verify configuration."""
-        self.logger.debug(f"Checking nbmodel listener: {self.extension_app.is_listening}")
+        self.logger.debug(
+            f"Checking nbmodel listener: {self.extension_app.is_listening}"
+        )
         slack_configured = bool(
-            self.extension_app.slack_client and 
-            (self.extension_app.slack_user_id or self.extension_app.slack_channel_name)
+            self.extension_app.slack_client
+            and (
+                self.extension_app.slack_user_id
+                or self.extension_app.slack_channel_name
+            )
         )
         email_configured = bool(self.extension_app.email)
         self.set_status(HTTPStatus.OK)
-        self.finish({
-            "nbmodel_installed": self.extension_app.is_listening,
-            "slack_configured": slack_configured,
-            "email_configured": email_configured,
-        })
+        self.finish(
+            {
+                "nbmodel_installed": self.extension_app.is_listening,
+                "slack_configured": slack_configured,
+                "email_configured": email_configured,
+            }
+        )
 
     @tornado.web.authenticated
     async def post(self) -> None:
@@ -66,8 +73,10 @@ class NotifyHandler(ExtensionHandlerMixin, JupyterHandler):
         self.logger.debug(f"Registering notification for cell_id: {params.cell_id}")
 
         # If a timeout threshold is configured, schedule a timer to trigger notification.
-        if params.mode in ('custom-timeout', 'global-timeout'):
-            timer = threading.Timer(params.threshold, self.extension_app.send_notification, args=(params,))
+        if params.mode in ("custom-timeout", "global-timeout"):
+            timer = threading.Timer(
+                params.threshold, self.extension_app.send_notification, args=(params,)
+            )
             params.timer = timer
             timer.start()
 

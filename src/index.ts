@@ -2,7 +2,11 @@ import {
   JupyterFrontEnd,
   JupyterFrontEndPlugin,
 } from '@jupyterlab/application';
-import { INotebookTracker, NotebookActions, NotebookPanel } from '@jupyterlab/notebook';
+import {
+  INotebookTracker,
+  NotebookActions,
+  NotebookPanel,
+} from '@jupyterlab/notebook';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
 import { ITranslator, nullTranslator } from '@jupyterlab/translation';
 import { LabIcon } from '@jupyterlab/ui-components';
@@ -11,7 +15,13 @@ import {
   IToolbarWidgetRegistry,
   showErrorMessage,
 } from '@jupyterlab/apputils';
-import { bellOutlineIcon, bellFilledIcon, bellOffIcon, bellAlertIcon, bellClockIcon } from './icons';
+import {
+  bellOutlineIcon,
+  bellFilledIcon,
+  bellOffIcon,
+  bellAlertIcon,
+  bellClockIcon,
+} from './icons';
 import { requestAPI } from './handler';
 import { Notification as JupyterNotification } from '@jupyterlab/apputils';
 import { ICellModel } from '@jupyterlab/cells';
@@ -57,25 +67,37 @@ interface ICellNotification {
 }
 
 // Constants
-const ModeIds = ['never' ,'always', 'on-error', 'global-timeout', 'custom-timeout'] as const;
-type ModeId = typeof ModeIds[number];
+const ModeIds = [
+  'never',
+  'always',
+  'on-error',
+  'global-timeout',
+  'custom-timeout',
+] as const;
+type ModeId = (typeof ModeIds)[number];
 
 const MODES: Record<ModeId, IMode> = {
   always: { label: 'Always', icon: bellFilledIcon },
   never: { label: 'Never', icon: bellOffIcon },
   'on-error': { label: 'On error', icon: bellAlertIcon },
-  'global-timeout': { label: 'If longer than global timeout', icon: bellClockIcon },
+  'global-timeout': {
+    label: 'If longer than global timeout',
+    icon: bellClockIcon,
+  },
   'custom-timeout': { label: 'If longer than %1', icon: bellOutlineIcon }, //Todo: change icon
 };
 
 /**
  * Generates notification data with a custom message
  */
-const generateNotificationData = (message: string, cell_id: string): Record<string, any> => ({
+const generateNotificationData = (
+  message: string,
+  cell_id: string,
+): Record<string, any> => ({
   type: 'NOTIFY',
-  payload: { 
-    title: message, 
-    body: `Cell id: ${cell_id}`
+  payload: {
+    title: message,
+    body: `Cell id: ${cell_id}`,
   },
   isProcessed: false,
   id: `notify-${Math.random().toString(36).substring(2)}`,
@@ -87,16 +109,19 @@ const generateNotificationData = (message: string, cell_id: string): Record<stri
 const displayConfigWarning = (
   service: 'Email' | 'Slack',
   configKey: string,
-  example: string
+  example: string,
 ): void => {
   JupyterNotification.emit(`${service} Not Configured`, 'error', {
     autoClose: 3000,
-    actions: [{
-      label: 'Help',
-      callback: () => showErrorMessage(`${service} Not Configured`, {
-        message: `Add a ${service.toLowerCase()} configuration to ~/.jupyter/jupyterlab_notify_config.json to enable ${service.toLowerCase()} notifications. Example: \n{\n  "${configKey}": "${example}"}-config"\n}`,
-      }),
-    }],
+    actions: [
+      {
+        label: 'Help',
+        callback: () =>
+          showErrorMessage(`${service} Not Configured`, {
+            message: `Add a ${service.toLowerCase()} configuration to ~/.jupyter/jupyterlab_notify_config.json to enable ${service.toLowerCase()} notifications. Example: \n{\n  "${configKey}": "${example}"}-config"\n}`,
+          }),
+      },
+    ],
   });
 };
 
@@ -162,9 +187,13 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
     // Cell metadata management
     const changeCellMetadata = (cell: ICellModel): void => {
-      const oldMetadata = cell.getMetadata(CELL_METADATA_KEY) as ICellMetadata | undefined;
+      const oldMetadata = cell.getMetadata(CELL_METADATA_KEY) as
+        | ICellMetadata
+        | undefined;
       const oldModeId = oldMetadata?.mode;
-      let nextModeIndex = oldModeId ? ModeIds.indexOf(oldModeId) + 1 : ModeIds.indexOf(notifySettings.defaultMode);
+      let nextModeIndex = oldModeId
+        ? ModeIds.indexOf(oldModeId) + 1
+        : ModeIds.indexOf(notifySettings.defaultMode);
       if (nextModeIndex >= ModeIds.length) nextModeIndex = 0;
       cell.setMetadata(CELL_METADATA_KEY, { mode: ModeIds[nextModeIndex] });
       app.commands.notifyCommandChanged(CommandIDs.toggleCellNotifications);
@@ -189,7 +218,11 @@ const plugin: JupyterFrontEndPlugin<void> = {
     /**
      * Handles notification rendering based on execution status
      */
-    const handleNotification = async (cellId: string, success: boolean, threshold = false): Promise<void> => {
+    const handleNotification = async (
+      cellId: string,
+      success: boolean,
+      threshold = false,
+    ): Promise<void> => {
       const notification = cellNotificationMap.get(cellId);
       if (!notification || notification.notificationIssued) return;
 
@@ -197,11 +230,11 @@ const plugin: JupyterFrontEndPlugin<void> = {
       if (payload.mode === 'on-error' && success && !threshold) return;
 
       // Determine appropriate message based on execution state
-      const message = threshold 
+      const message = threshold
         ? 'Cell execution timeout reached'
-        : success 
-          ? notifySettings.successMessage
-          : notifySettings.failureMessage;
+        : success
+        ? notifySettings.successMessage
+        : notifySettings.failureMessage;
 
       const notificationData = generateNotificationData(message, cellId);
 
@@ -217,7 +250,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
       }
 
       try {
-        const mimeModel = new MimeModel({ data: { [MIME_TYPE]: notificationData } });
+        const mimeModel = new MimeModel({
+          data: { [MIME_TYPE]: notificationData },
+        });
         const renderer = rendermime.createRenderer(MIME_TYPE);
         await renderer.renderModel(mimeModel);
         console.log('Notification rendered successfully');
@@ -237,29 +272,38 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
     NotebookActions.executionScheduled.connect(async (_, args) => {
       const { cell } = args;
-      const cellMetadata = cell.model.getMetadata(CELL_METADATA_KEY) as ICellMetadata;
+      const cellMetadata = cell.model.getMetadata(
+        CELL_METADATA_KEY,
+      ) as ICellMetadata;
       const mode = cellMetadata?.mode;
       if (!mode || mode === 'never') return;
-      
-      if(Notification.permission != 'granted'){
+
+      if (Notification.permission != 'granted') {
         Notification.requestPermission().catch(err => {
           JupyterNotification.emit('Permission Error', 'error', {
             autoClose: 3000,
-            actions: [{
-              label: 'Show Details',
-              callback: () => showErrorMessage('Permission Error', {
-                message: err,
-              }),
-            }],
-          });          
+            actions: [
+              {
+                label: 'Show Details',
+                callback: () =>
+                  showErrorMessage('Permission Error', {
+                    message: err,
+                  }),
+              },
+            ],
+          });
         });
       }
       // Show configuration warnings
       if (notifySettings.mail && !config.email_configured) {
-        displayConfigWarning('Email', 'email', "youremail@example.com");
+        displayConfigWarning('Email', 'email', 'youremail@example.com');
       }
       if (notifySettings.slack && !config.slack_configured) {
-        displayConfigWarning('Slack', 'slack_token', 'xoxb-your-slackbot-token');
+        displayConfigWarning(
+          'Slack',
+          'slack_token',
+          'xoxb-your-slackbot-token',
+        );
       }
 
       const payload = {
@@ -308,25 +352,31 @@ const plugin: JupyterFrontEndPlugin<void> = {
         if (!current) return trans.__('Toggle Notifications for Selected Cell');
         const selectedCells = current.content.selectedCells;
         if (selectedCells.length === 1) {
-          const metadata = selectedCells[0].model.getMetadata(CELL_METADATA_KEY) as ICellMetadata | undefined;
+          const metadata = selectedCells[0].model.getMetadata(
+            CELL_METADATA_KEY,
+          ) as ICellMetadata | undefined;
           const modeId = metadata?.mode ?? notifySettings.defaultMode;
           return `${MODES[modeId].label} (click to toggle)`;
         }
         return trans._n(
           'Toggle Notifications for Selected Cell',
           'Toggle Notifications for %1 Selected Cells',
-          selectedCells.length
+          selectedCells.length,
         );
       },
       execute: () => {
         const current = tracker.currentWidget;
         if (!current) return console.warn('No notebook selected');
-        current.content.selectedCells.forEach(cell => changeCellMetadata(cell.model));
+        current.content.selectedCells.forEach(cell =>
+          changeCellMetadata(cell.model),
+        );
       },
       icon: args => {
         if (!args.toolbar || !tracker.currentWidget) return undefined;
         const cell = tracker.currentWidget.content.selectedCells[0];
-        const metadata = cell.model.getMetadata(CELL_METADATA_KEY) as ICellMetadata | undefined;
+        const metadata = cell.model.getMetadata(CELL_METADATA_KEY) as
+          | ICellMetadata
+          | undefined;
         const modeId = metadata?.mode ?? notifySettings.defaultMode;
         return MODES[modeId].icon;
       },
@@ -336,11 +386,11 @@ const plugin: JupyterFrontEndPlugin<void> = {
     // Toolbar integration
     if (toolbarRegistry) {
       const itemFactory = createDefaultFactory(app.commands);
-      toolbarRegistry.addFactory('Cell', 'notify', widget => 
+      toolbarRegistry.addFactory('Cell', 'notify', widget =>
         itemFactory('Cell', widget, {
           name: 'notify',
           command: CommandIDs.toggleCellNotifications,
-        })
+        }),
       );
     }
   },

@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from typing import Optional
 from threading import Timer
 
+
 class NotificationParams(BaseModel):
     cell_id: str
     mode: str
@@ -23,10 +24,12 @@ class NotificationParams(BaseModel):
 
     class Config:
         extra = "ignore"  # Ignores any extra fields in the request body
-        arbitrary_types_allowed = True # For allowing timer
+        arbitrary_types_allowed = True  # For allowing timer
+
 
 class SMTPConfigurationError(Exception):
     pass
+
 
 class NotificationConfig(Configurable):
     smtp_class: str = Unicode(
@@ -36,51 +39,49 @@ class NotificationConfig(Configurable):
     )
 
     smtp_args: str = Any(
-        ["localhost",1025],
+        ["localhost", 1025],
         config=True,
         help="Arguments to pass to the SMTP class constructor, as a string",
     )
 
     email = Unicode(
-        help="User's email for notifications",
-        allow_none=True,
-        default_value=None
+        help="User's email for notifications", allow_none=True, default_value=None
     ).tag(config=True)
-    
+
     slack_token = Unicode(
-        help="Slack bot token for notifications",
-        allow_none=True,
-        default_value=None
+        help="Slack bot token for notifications", allow_none=True, default_value=None
     ).tag(config=True)
-    
+
     slack_user_id = Unicode(
-        help="Slack user ID for direct messages",
-        allow_none=True,
-        default_value=None
+        help="Slack user ID for direct messages", allow_none=True, default_value=None
     ).tag(config=True)
-    
+
     slack_channel_name = Unicode(
-        help="Slack channel Name for notifications",
-        allow_none=True,
-        default_value=None
+        help="Slack channel Name for notifications", allow_none=True, default_value=None
     ).tag(config=True)
-    
-    @default('email')
+
+    @default("email")
     def _email_default(self):
-        return os.environ.get('JUPYTER_NOTIFY_EMAIL') or self._load_from_file('email')
-    
-    @default('slack_token')
+        return os.environ.get("JUPYTER_NOTIFY_EMAIL") or self._load_from_file("email")
+
+    @default("slack_token")
     def _slack_token_default(self):
-        return os.environ.get('JUPYTER_SLACK_TOKEN') or self._load_from_file('slack_token')
-    
-    @default('slack_user_id')
+        return os.environ.get("JUPYTER_SLACK_TOKEN") or self._load_from_file(
+            "slack_token"
+        )
+
+    @default("slack_user_id")
     def _slack_user_id_default(self):
-        return os.environ.get('JUPYTER_SLACK_USER_ID') or self._load_from_file('slack_user_id')
-    
-    @default('slack_channel_name')
+        return os.environ.get("JUPYTER_SLACK_USER_ID") or self._load_from_file(
+            "slack_user_id"
+        )
+
+    @default("slack_channel_name")
     def _slack_channel_id_default(self):
-        return os.environ.get('JUPYTER_SLACK_CHANNEL_NAME') or self._load_from_file('slack_channel_name')
-    
+        return os.environ.get("JUPYTER_SLACK_CHANNEL_NAME") or self._load_from_file(
+            "slack_channel_name"
+        )
+
     def __init__(self):
         self.smtp_instance = None
         self._setup_smtp_instance()
@@ -166,9 +167,9 @@ class NotificationConfig(Configurable):
             return self.smtp_args
 
     def _load_from_file(self, key):
-        config_path = Path.home() / '.jupyter/jupyterlab_notify_config.json'
+        config_path = Path.home() / ".jupyter/jupyterlab_notify_config.json"
         try:
-            with open(config_path, 'r') as f:
+            with open(config_path, "r") as f:
                 config = json.load(f)
                 return config.get(key)
         except (FileNotFoundError, json.JSONDecodeError):

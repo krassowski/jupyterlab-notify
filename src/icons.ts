@@ -7,25 +7,25 @@ import bellClock from '../style/icons/bell-clock.svg';
 
 export const bellOutlineIcon = new LabIcon({
   name: 'notify:bell-outline',
-  svgstr: bellOutline
+  svgstr: bellOutline,
 });
 
 export const bellFilledIcon = new LabIcon({
   name: 'notify:bell-filled',
-  svgstr: bellFilled
+  svgstr: bellFilled,
 });
 
 export const bellOffIcon = new LabIcon({
   name: 'notify:bell-off',
-  svgstr: bellOff
+  svgstr: bellOff,
 });
 
 export const bellAlertIcon = new LabIcon({
   name: 'notify:bell-alert',
-  svgstr: bellAlert
+  svgstr: bellAlert,
 });
 
 export const bellClockIcon = new LabIcon({
   name: 'notify:bell-clock',
-  svgstr: bellClock
-})
+  svgstr: bellClock,
+});

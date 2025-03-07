@@ -16,7 +16,13 @@
       "title": "Default mode",
       "description": "The default mode for notification",
       "type": "string",
-      "enum": ["never", "always", "on-error", "global-timeout", "custom-timeout"],
+      "enum": [
+        "never",
+        "always",
+        "on-error",
+        "global-timeout",
+        "custom-timeout"
+      ],
       "default": "never"
     },
     "threshold": {
