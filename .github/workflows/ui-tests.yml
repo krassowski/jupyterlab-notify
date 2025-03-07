@@ -38,9 +38,9 @@ jobs:
       # Install dependencies
       - name: Install dependencies
         run: |
-          yarn install --frozen-lockfile
+          yarn install
           cd ui-tests
-          yarn install --frozen-lockfile
+          yarn install
 
       # Build your extension (if needed)
       - name: Build extension
