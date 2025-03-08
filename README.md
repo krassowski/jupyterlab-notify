@@ -22,7 +22,7 @@ To enable Slack and email notifications, create a configuration file at `~/.jupy
 
 ```json
 {
-  "slack_token": "xoxb-1234567890123-1234567890123-abcDEFghiJKLmnOPqrstUVwx",
+  "slack_token": "xoxb-your-slackbot-token",
   "slack_channel_name": "notifications",
   "email": "user@example.com"
 }
