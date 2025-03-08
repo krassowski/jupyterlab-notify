@@ -7,75 +7,75 @@ JupyterLab extension to notify cell completion
 
 ![notify-extension-in-action](https://github.com/deshaw/jupyterlab-notify/blob/main/docs/notify-screenshot.png?raw=true)
 
-This is inspired by the notebook version [here](https://github.com/ShopRunner/jupyter-notify).
-
 ## Usage
 
-### Register magics
+The `jupyterlab-notify` extension allows you to receive notifications about cell execution results in JupyterLab. Notifications are configured through cell metadata or the JupyterLab interface, providing seamless integration and easier management of notification preferences. Notifications can be sent via desktop pop-ups, Slack messages, or emails, depending on your configuration.
 
-```python
-%load_ext jupyterlab_notify
+**Important Note**: JupyterLab Notify v2 supports `jupyter-server-nbmodel`(>= v0.1.1a2), enabling notifications to work even after the browser is closed. To enable browser-less notification support, install it with:
+```bash
+pip install jupyter-server-nbmodel
 ```
 
-### Notify completion of single cell:
+### Configuration
 
-```python
-%%notify
-import time
-time.sleep(1)
+To enable Slack and email notifications, create a configuration file at `~/.jupyter/jupyterlab_notify_config.json` with the following format:
+
+```json
+{
+  "slack_token": "xoxb-1234567890123-1234567890123-abcDEFghiJKLmnOPqrstUVwx",
+  "slack_channel_name": "notifications",
+  "email": "user@example.com"
+}
 ```
 
-### Mail output upon completion (with optional title for successfull execution)
+- `slack_token`: A valid Slack bot token with `chat:write` permissions. Refer ![this article](https://help.thebotplatform.com/en/articles/7233667-how-to-create-a-slack-bot) to create your own slack bot
+- `slack_channel_name`: The Slack channel to post notifications to.
+- `email`: The email address to receive notifications. Refer ![this article](https://mailtrap.io/blog/setup-smtp-server/) to setup SMTP server.
 
-```python
-%%notify --mail --success 'Long-running cell in <foo> notebook is done!'
-time.sleep(1)
-```
+**Note:** Ensure your JupyterLab server has SMTP access for email notifications (configured separately).
 
-**Note:** Mail requires/assumes that you have an SMTP server running on "localhost" - refer [SMTP doc](https://docs.python.org/3/library/smtplib.html#smtplib.SMTP.connect) for more details.
-In case this assumption does not hold true for you, please open an issue with relevant details.
+### Notification Modes
 
-### Failure scenarios
+You can control when notifications are sent by setting a mode for each cell. Modes can be configured through the JupyterLab interface by clicking on the bell icon in the cell toolbar.
 
-```python
-%%notify -f 'Long-running cell in <foo> notebook failed'
-raise ValueError
-```
+![image](https://github.com/user-attachments/assets/b384c0ee-88d0-47e8-9825-e42becf657a7)
 
-### Threshold-based notifications (unit in seconds)
+**Supported modes include:**
 
-```python
-%notify_all --threshold 1
-time.sleep(1)
-```
+- `always`: Sends a notification every time a cell finishes executing.
+- `never`: Disables notifications for the cell.
+- `on-error`: Sends a notification only if the cell - execution fails with an error.
+- `global-timeout`: Sends a notification if the cell execution exceeds a globally configured timeout.
+- `custom-timeout`: Sends a notification if the cell execution exceeds a timeout specified for that cell.
 
-Once enabled, `notify_all` will raise a notification for cells that either exceed the given threshold or raise exception. This ability can also be used to check if/when all cells in a notebook completes execution. For instance,
+### Global And Custom Timeout
 
-```python
-# In first cell
-%notify_all -t 86400 -f 'Notebook execution failed'
-# ...
-# ...
-# In last cell
-%%notify -s 'Notebook execution completed'
-```
+Configure the global and custom timeout value in JupyterLab’s settings:
 
-### Disable notifications
+1. Go to Settings Editor.
+2. Select notify.
+3. Set "globalTimeout": 30 (in seconds) to apply to cells using the global-timeout mode.
 
-```python
-%notify_all --disable
-time.sleep(1)
-```
+### Desktop Notifications
 
-### Learn more
+Desktop notifications are enabled by default and appear as pop-up alerts on your system.
 
-```python
-%%notify?
-```
+![image](https://github.com/user-attachments/assets/77bb746d-2f00-4473-8a5e-28cb4ecba115)
 
-```python
-%notify_all?
-```
+### Slack Notifications
+
+Slack notifications are sent to the configured channel, requiring the setup described in the Configuration section.
+
+### Email Notifications
+
+Email notifications are sent to the configured email address, also requiring the setup from the Configuration section.
+
+#### Configuration warning
+
+If your email or Slack notifications are not configured but you attempt to enable them through the settings editor, a warning will be displayed when you try to execute a cell in the JupyterLab interface.
+
+![image](https://github.com/user-attachments/assets/d7ae64f0-e409-44db-a3a9-f657882da532)
+
 
 ## Troubleshoot
 
