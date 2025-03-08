@@ -5,8 +5,6 @@
 
 JupyterLab extension to notify cell completion
 
-![notify-extension-in-action](https://github.com/deshaw/jupyterlab-notify/blob/main/docs/notify-screenshot.png?raw=true)
-
 ## Usage
 
 The `jupyterlab-notify` extension allows you to receive notifications about cell execution results in JupyterLab. Notifications are configured through cell metadata or the JupyterLab interface, providing seamless integration and easier management of notification preferences. Notifications can be sent via desktop pop-ups, Slack messages, or emails, depending on your configuration.
@@ -28,9 +26,9 @@ To enable Slack and email notifications, create a configuration file at `~/.jupy
 }
 ```
 
-- `slack_token`: A valid Slack bot token with `chat:write` permissions. Refer ![this article](https://help.thebotplatform.com/en/articles/7233667-how-to-create-a-slack-bot) to create your own slack bot
+- `slack_token`: A valid Slack bot token with `chat:write` permissions. Refer [this article](https://help.thebotplatform.com/en/articles/7233667-how-to-create-a-slack-bot) to create your own slack bot
 - `slack_channel_name`: The Slack channel to post notifications to.
-- `email`: The email address to receive notifications. Refer ![this article](https://mailtrap.io/blog/setup-smtp-server/) to setup SMTP server.
+- `email`: The email address to receive notifications. Refer [this article](https://mailtrap.io/blog/setup-smtp-server/) to setup SMTP server.
 
 **Note:** Ensure your JupyterLab server has SMTP access for email notifications (configured separately).
 
