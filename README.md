@@ -10,6 +10,7 @@ JupyterLab extension to notify cell completion
 The `jupyterlab-notify` extension allows you to receive notifications about cell execution results in JupyterLab. Notifications are configured through cell metadata or the JupyterLab interface, providing seamless integration and easier management of notification preferences. Notifications can be sent via desktop pop-ups, Slack messages, or emails, depending on your configuration.
 
 **Important Note**: JupyterLab Notify v2 supports `jupyter-server-nbmodel`(>= v0.1.1a2), enabling notifications to work even after the browser is closed. To enable browser-less notification support, install it with:
+
 ```bash
 pip install jupyter-server-nbmodel
 ```
@@ -73,7 +74,6 @@ Email notifications are sent to the configured email address, also requiring the
 If your email or Slack notifications are not configured but you attempt to enable them through the settings editor, a warning will be displayed when you try to execute a cell in the JupyterLab interface.
 
 ![image](https://github.com/user-attachments/assets/d7ae64f0-e409-44db-a3a9-f657882da532)
-
 
 ## Troubleshoot
 
