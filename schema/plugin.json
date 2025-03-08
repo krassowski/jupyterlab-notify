@@ -12,6 +12,19 @@
     ]
   },
   "properties": {
+    "defaultMode": {
+      "title": "Default mode",
+      "description": "The default mode for notification",
+      "type": "string",
+      "enum": [
+        "never",
+        "always",
+        "on-error",
+        "global-timeout",
+        "custom-timeout"
+      ],
+      "default": "never"
+    },
     "threshold": {
       "title": "Threshold",
       "description": "Threshold-based notifications (unit in seconds)",
@@ -35,7 +48,15 @@
       "title": "Send email",
       "description": "Send email notification including the cell result",
       "type": "boolean",
-      "default": false
+      "default": false,
+      "disabled": true
+    },
+    "slack": {
+      "title": "Send slack notification",
+      "description": "Send slack notification including the cell result",
+      "type": "boolean",
+      "default": false,
+      "disabled": true
     }
   },
   "additionalProperties": false,

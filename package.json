@@ -93,7 +93,10 @@
     "dist",
     "coverage",
     "**/*.d.ts",
-    "tests"
+    "tests",
+    "**/__tests__",
+    "ui-tests",
+    "style"
   ],
   "prettier": {
     "singleQuote": true,
@@ -110,7 +113,7 @@
     ],
     "parser": "@typescript-eslint/parser",
     "parserOptions": {
-      "project": "tsconfig.json",
+      "project": true,
       "sourceType": "module"
     },
     "plugins": [
