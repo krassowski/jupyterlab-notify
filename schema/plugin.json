@@ -1,22 +1,47 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema",
-  "title": "Notify",
+  "title": "Execution Notifications",
   "description": "jupyterlab-notify settings.",
   "jupyter.lab.setting-icon": "notify:bell-outline",
   "jupyter.lab.toolbars": {
+    "Notebook": [
+      {
+        "name": "notifyType",
+        "rank": 80
+      }
+    ],
     "Cell": [
       {
-        "name": "notify",
-        "command": "notify:toggle-cell-notifications"
+        "name": "cellNotifyMenu",
+        "rank": 100
       }
     ]
   },
   "properties": {
-    "threshold": {
-      "title": "Threshold",
-      "description": "Threshold-based notifications (unit in seconds)",
+    "defaultMode": {
+      "title": "Default mode",
+      "description": "The default mode for notification",
+      "type": "string",
+      "oneOf": [
+        { "const": "default", "title": "Default" },
+        { "const": "never", "title": "Never" },
+        { "const": "on-error", "title": "On Error" },
+        { "const": "custom-timeout", "title": "Custom timeout" }
+      ],
+      "default": "default"
+    },
+    "defaultThreshold": {
+      "title": "Threshold for default notification",
+      "description": "Default threshold value (unit in seconds)",
       "type": ["number", "null"],
-      "default": null,
+      "default": 30,
+      "minimum": 0
+    },
+    "customTimeout": {
+      "title": "Timeout value for timeout notifications",
+      "description": "Default timeout value for custom timeout notification (unit in seconds)",
+      "type": ["number", "null"],
+      "default": 30,
       "minimum": 0
     },
     "successMessage": {
@@ -35,7 +60,21 @@
       "title": "Send email",
       "description": "Send email notification including the cell result",
       "type": "boolean",
-      "default": false
+      "default": false,
+      "disabled": true
+    },
+    "slack": {
+      "title": "Send slack notification",
+      "description": "Send slack notification including the cell result",
+      "type": "boolean",
+      "default": false,
+      "disabled": true
+    },
+    "alwaysNotifyOnError": {
+      "title": "Always notify on error",
+      "description": "If enabled, any cell configured with a notification mode other than \"never\" will always trigger a notification when execution fails.",
+      "type": "boolean",
+      "default": true
     }
   },
   "additionalProperties": false,
